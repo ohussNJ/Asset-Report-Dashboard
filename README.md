@@ -1,6 +1,6 @@
 # Asset Report Dashboard
 
-A desktop GUI that pulls live market data and displays a full indicator dashboard for a configurable watchlist.
+A desktop GUI that pulls live market data and displays a full indicator dashboard for a configurable watchlist
 
 ---
 
@@ -14,7 +14,7 @@ A desktop GUI that pulls live market data and displays a full indicator dashboar
 
 ### 2. Download this project
 
-If you received this as a ZIP file, extract it to a folder (e.g. `C:\AssetReport`).
+If you download this as a ZIP file, extract it to a folder (e.g. `C:\AssetReport`).
 
 ### 3. Install dependencies
 
@@ -27,9 +27,8 @@ python -m pip install -r requirements.txt
 
 ### 4. Run the app
 
-**Option A — double-click launcher (recommended)**
-- Right-click `AssetReport.bat` → **Send to → Desktop (create shortcut)**
-- Double-click the shortcut any time you want to open the dashboard
+**Option A — open launcher**
+- Run `AssetReport.bat` 
 
 **Option B — from the terminal**
 ```
@@ -47,7 +46,7 @@ A responsive grid of cards — one per ticker, sorted by score (highest first). 
 - **BULL** (green) / **BEAR** (red) header, or neutral (gray, no label)
 - Current price and percentage change from the previous close
 - Score sparkline (last 60 bars) with ±20 neutral-zone shading
-- Per-indicator breakdown across Momentum, Trend, Structure, Volume, and Channels sections
+- Per-indicator breakdown across momentum, trend, structure, volume, and channels sections
 
 Clicking a card navigates to that ticker's chart tab. A scrolling banner at the top shows all bullish tickers and their scores.
 
@@ -67,8 +66,6 @@ Each ticker has its own tab with six sub-chart tabs:
 | **Stoch RSI** | Same as Volume | Slow StochRSI (3,3,14,14) and Fast StochRSI (3,3,6,9) |
 | **OBV** | Same as Volume | OBV + OBV EMA, bull/bear fill, divergence lines |
 | **Keltner** | Candlestick + Keltner Channel + NW Envelope (dotted) + 17-bar (purple) and 42-bar (blue) reference lines | CNV_TB histogram (blue above zero, red below) with B/S crossover markers |
-
-All charts share a **crosshair**: a vertical dashed line across all panels, and a horizontal line on the price panel only.
 
 Use the **matplotlib toolbar** at the top of each chart to zoom, pan, and export as an image.
 
