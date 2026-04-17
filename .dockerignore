@@ -1,0 +1,13 @@
+.cache/
+__pycache__/
+*.pyc
+*.pyo
+*.pkl
+.env
+.git/
+.idea/
+node_modules/
+frontend/node_modules/
+frontend/dist/
+*.md
+images/

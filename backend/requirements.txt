@@ -1,0 +1,25 @@
+# Data
+yfinance>=0.2.40
+pandas>=2.0.0
+pandas-ta>=0.3.14b
+numpy>=1.26.0
+pyarrow>=14.0.0
+
+# Desktop GUI (unchanged)
+PyQt6>=6.6.0
+matplotlib>=3.8.0
+
+# Web backend
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+python-dotenv>=1.0.0
+
+# Cache
+redis>=5.0.0
+
+# Database
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.0
+
+# Task queue
+celery>=5.4.0

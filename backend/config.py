@@ -110,7 +110,7 @@ NW_LOOKBACK    = 500
 # ── Signal Classification ───────────────────────────────────────────────────────
 # Entry: score must cross ±SIGNAL_ENTRY with slope in the right direction
 # Exit:  score must retreat past ±SIGNAL_EXIT to return to Neutral (hysteresis)
-# Slope: 5-bar linreg on the SMA(5)-smoothed score — lower = faster but noisier
+# Slope: 5-bar linreg on the SMA(5)-smoothed score (lower = faster but noisier)
 SIGNAL_ENTRY      = 30
 SIGNAL_EXIT       = 10
 SIGNAL_SLOPE_BARS = 5

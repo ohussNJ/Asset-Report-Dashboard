@@ -1,8 +1,0 @@
-yfinance>=0.2.40
-pandas>=2.0.0
-pandas-ta>=0.3.14b
-matplotlib>=3.8.0
-numpy>=1.26.0
-PyQt6>=6.6.0
-pyarrow>=14.0.0
-streamlit>=1.32.0

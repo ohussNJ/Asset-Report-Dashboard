@@ -1,43 +1,66 @@
-# data.py  –  yfinance data fetching with in-memory + disk cache
+# data.py  –  yfinance data fetching with in-memory (L1) + Redis (L2) cache
 
-import time
+import os
 import pickle
-import pathlib
 import pandas as pd
 import yfinance as yf
+import redis as redis_lib
 from config import TICKERS, DAILY_PERIOD, WEEKLY_PERIOD
 
 _cache: dict[str, pd.DataFrame] = {}
 
-# Disk cache lives next to this file
-_CACHE_DIR = pathlib.Path(__file__).parent / ".cache"
-_CACHE_TTL  = 4 * 60 * 60   # 4 hours in seconds
+_CACHE_TTL = 4 * 60 * 60  # 4 hours
 
-def _cache_path(key: str) -> pathlib.Path:
-    safe = key.replace("/", "_").replace("\\", "_")
-    return _CACHE_DIR / f"{safe}.pkl"
+_redis: redis_lib.Redis | None = None
 
 
-def _disk_read(key: str) -> pd.DataFrame | None:
-    p = _cache_path(key)
-    if not p.exists():
-        return None
-    if time.time() - p.stat().st_mtime > _CACHE_TTL:
-        return None
+def _get_redis() -> redis_lib.Redis | None:
+    global _redis
+    if _redis is not None:
+        return _redis
     try:
-        with open(p, "rb") as f:
-            return pickle.load(f)
-    except Exception:
-        return None
-
-
-def _disk_write(key: str, df: pd.DataFrame) -> None:
-    _CACHE_DIR.mkdir(exist_ok=True)
-    try:
-        with open(_cache_path(key), "wb") as f:
-            pickle.dump(df, f)
+        url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+        client = redis_lib.from_url(url, decode_responses=False)
+        client.ping()
+        _redis = client
     except Exception:
         pass
+    return _redis
+
+
+def _redis_read(key: str) -> pd.DataFrame | None:
+    r = _get_redis()
+    if r is None:
+        return None
+    try:
+        data = r.get(key)
+        if data is None:
+            return None
+        return pickle.loads(data)
+    except Exception:
+        return None
+
+
+def _redis_write(key: str, df: pd.DataFrame) -> None:
+    r = _get_redis()
+    if r is None:
+        return
+    try:
+        r.setex(key, _CACHE_TTL, pickle.dumps(df))
+    except Exception:
+        pass
+
+
+def _db_read(symbol: str, interval: str) -> pd.DataFrame | None:
+    """Last-resort fallback: read OHLCV rows from PostgreSQL."""
+    try:
+        import db
+        df = db.read_prices(symbol, interval)
+        if not df.empty:
+            return df
+    except Exception:
+        pass
+    return None
 
 
 def _clean(df: pd.DataFrame) -> pd.DataFrame:
@@ -66,7 +89,7 @@ def _split_batch(batch_df: pd.DataFrame, symbols: list[str]) -> dict[str, pd.Dat
         return result
 
     if isinstance(batch_df.columns, pd.MultiIndex):
-        # yfinance group_by="ticker" → MultiIndex(Ticker, Price) — level 0 is ticker
+        # yfinance group_by="ticker" produces MultiIndex(Ticker, Price) with ticker at level 0
         for sym in symbols:
             try:
                 ticker_df = batch_df.xs(sym, axis=1, level=0).copy()
@@ -104,13 +127,19 @@ def fetch(ticker_key: str, interval: str = "1d", force: bool = False) -> pd.Data
         print(f"[data] fetch error {symbol} ({interval}): {exc}")
         df = pd.DataFrame()
 
+    if df.empty:
+        fallback = _db_read(symbol, interval)
+        if fallback is not None:
+            print(f"[data] DB fallback used for {symbol} ({interval})")
+            df = fallback
+
     _cache[cache_key] = df
     return df
 
 
 def fetch_symbols_batch(symbols: list[str], interval: str = "1d") -> dict[str, pd.DataFrame]:
-    """Batch-download a list of arbitrary symbols, return per-symbol DataFrames.
-    Results are cached to disk for up to 4 hours."""
+    """Batch-download a list of arbitrary symbols and return per-symbol DataFrames.
+    Results are cached in Redis for up to 4 hours."""
     result: dict[str, pd.DataFrame] = {}
     to_fetch: list[str] = []
 
@@ -118,7 +147,7 @@ def fetch_symbols_batch(symbols: list[str], interval: str = "1d") -> dict[str, p
         key = f"sym_{sym}_{interval}"
         cached = _cache.get(key)
         if cached is None:
-            cached = _disk_read(key)
+            cached = _redis_read(key)
         if cached is not None:
             _cache[key] = cached
             result[sym] = cached
@@ -146,14 +175,24 @@ def fetch_symbols_batch(symbols: list[str], interval: str = "1d") -> dict[str, p
     for sym, df in fetched.items():
         key = f"sym_{sym}_{interval}"
         _cache[key] = df
-        _disk_write(key, df)
+        _redis_write(key, df)
         result[sym] = df
+
+    # DB fallback for anything yfinance didn't return
+    for sym in to_fetch:
+        if sym not in result:
+            fallback = _db_read(sym, interval)
+            if fallback is not None:
+                print(f"[data] DB fallback used for {sym} ({interval})")
+                key = f"sym_{sym}_{interval}"
+                _cache[key] = fallback
+                result[sym] = fallback
 
     return result
 
 
 def fetch_symbol(symbol: str, interval: str = "1d") -> pd.DataFrame:
-    """Fetch any arbitrary symbol — used for custom ticker tabs."""
+    """Fetch any arbitrary symbol for custom ticker tabs."""
     period = WEEKLY_PERIOD if interval == "1wk" else DAILY_PERIOD
     try:
         df = yf.download(symbol, period=period, interval=interval,
@@ -166,8 +205,8 @@ def fetch_symbol(symbol: str, interval: str = "1d") -> pd.DataFrame:
 
 def fetch_all(interval: str = "1d", force: bool = False) -> dict[str, pd.DataFrame]:
     """
-    Batch-download all configured tickers in a single yfinance request,
-    then split into per-ticker DataFrames.  Falls back per-ticker on error.
+    Batch-download all configured tickers in a single yfinance request
+    and split into per-ticker DataFrames. Falls back per-ticker on error.
     """
     # Check if everything is already cached
     if not force:

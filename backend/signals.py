@@ -49,7 +49,7 @@ def _pct(val: float) -> str:
 # ── Vectorized per-bar score (used for SMA smoothing) ─────────────────────────
 
 def _rolling_slope(series: pd.Series, window: int) -> pd.Series:
-    """Rolling linear regression slope — matches our _slope() polyfit logic."""
+    """Rolling linear regression slope to match the _slope() polyfit logic."""
     x = np.arange(window, dtype=float)
     def _s(y):
         try:
@@ -136,7 +136,7 @@ def _score_series(df: pd.DataFrame) -> pd.Series:
 
 
 def score_history(df: pd.DataFrame, n: int = 60) -> pd.Series:
-    """Return the last n bars of SMA(5)-smoothed net score — mirrors Pine's scoreSmooth."""
+    """Return the last n bars of SMA(5)-smoothed net score (mirrors Pine's scoreSmooth)."""
     raw = _score_series(df)
     return raw.rolling(5).mean().dropna().tail(n)
 
@@ -203,7 +203,7 @@ def get_signal_state(df: pd.DataFrame,
 # ── Score helpers ──────────────────────────────────────────────────────────────
 
 def _score(bulls: list) -> tuple[int, int]:
-    # Denominator is always the full indicator count — None counts as not bullish
+    # Denominator is always the full indicator count (None counts as not bullish)
     n_bull = sum(1 for b in bulls if b == True)
     return (n_bull, len(bulls))
 
@@ -264,7 +264,7 @@ def get_signals(df: pd.DataFrame) -> dict:
         d_up   = d_slp > 0
         k_gt_d = (k > d) if not (np.isnan(k) or np.isnan(d)) else None
         zone   = "OB" if k > 80 else ("OS" if k < 20 else "")
-        # Green if K above D, red if K below D — always colored when data exists
+        # Green if K above D, red if K below D (always colored when data exists)
         bull   = bool(k_gt_d)      if k_gt_d is not None else False
         bear   = bool(not k_gt_d)  if k_gt_d is not None else False
         zone_tag = f" [{zone}]" if zone else ""
@@ -458,7 +458,6 @@ def get_signals(df: pd.DataFrame) -> dict:
         else:
             nw_bull = None
 
-        nw_above = last_close > _last(df, "NW")
         s["NW"] = {
             "text": nw_text,
             "bull": nw_bull,
@@ -472,15 +471,6 @@ def get_signals(df: pd.DataFrame) -> dict:
     def _pts(val: int) -> str:
         return f"+{val}" if val > 0 else (f"-{abs(val)}" if val < 0 else "")
 
-    def _contrib(buy_pts: int, sell_pts: int, condition_bull, condition_bear) -> str:
-        if condition_bull:   buy_score_ref[0]  += buy_pts;  return _pts(buy_pts)
-        elif condition_bear: sell_score_ref[0] += sell_pts; return _pts(-sell_pts)
-        return ""
-
-    # Use a mutable container so nested assignments work cleanly
-    buy_score_ref  = [0]
-    sell_score_ref = [0]
-
     # RSI condition 1: slope > 0 AND rsi > SMA
     if b_rsi1 == True:   buy_score  += 10
     elif b_rsi1 == False: sell_score += 10
@@ -491,7 +481,6 @@ def get_signals(df: pd.DataFrame) -> dict:
     rsi_lvl_bear = rsi_val <= 36
     if rsi_lvl_bull:   buy_score  += 10
     elif rsi_lvl_bear: sell_score += 10
-    rsi_lvl_pts = _pts(10) if rsi_lvl_bull else (_pts(-10) if rsi_lvl_bear else "")
     # Combine both RSI contributions into one score string
     s["RSI"]["score"] = _pts(20) if (b_rsi1 == True and rsi_lvl_bull) else (
         _pts(10) if (b_rsi1 == True or rsi_lvl_bull) else (
@@ -548,7 +537,7 @@ def get_signals(df: pd.DataFrame) -> dict:
 
     net = buy_score - sell_score
 
-    # SMA(5) smoothing — matches Pine Script's `scoreSmooth = ta.sma(netScore, 5)`
+    # SMA(5) smoothing matching Pine Script scoreSmooth = ta.sma(netScore, 5)
     _hist = score_history(df, n=5)
     net_smoothed = int(round(_hist.iloc[-1])) if len(_hist) else net
 
@@ -558,5 +547,41 @@ def get_signals(df: pd.DataFrame) -> dict:
     s["bars_held"] = sig_state["bars_held"]
     s["overall"]   = True if sig_state["signal"] == "BULL" else (False if sig_state["signal"] == "BEAR" else None)
     s["score_str"] = f"+{net_smoothed}" if net_smoothed > 0 else str(net_smoothed)
+
+    # Sparkline: 60 bars of smoothed score for Summary cards
+    try:
+        _spark = score_history(df, n=60)
+        s["sparkline"] = [round(float(v), 1) for v in _spark.tolist() if not np.isnan(float(v))]
+    except Exception:
+        s["sparkline"] = []
+
+    # Signal segments: current and previous contiguous state blocks
+    try:
+        _hist  = signal_state_history(df, n=len(df))
+        _segs: list = []
+        if len(_hist) >= 1:
+            _st = _hist.iloc[0]
+            _si = _hist.index[0]
+            for _k in range(1, len(_hist)):
+                if _hist.iloc[_k] != _st:
+                    _cnt = int(((_hist.index >= _si) & (_hist.index <= _hist.index[_k - 1])).sum())
+                    _segs.append({
+                        "state": _st,
+                        "start": _si.strftime("%b %-d"),
+                        "end":   _hist.index[_k - 1].strftime("%b %-d"),
+                        "bars":  _cnt,
+                    })
+                    _st = _hist.iloc[_k]
+                    _si = _hist.index[_k]
+            _cnt = int(((_hist.index >= _si) & (_hist.index <= _hist.index[-1])).sum())
+            _segs.append({
+                "state": _st,
+                "start": _si.strftime("%b %-d"),
+                "end":   "today",
+                "bars":  _cnt,
+            })
+        s["signal_segments"] = _segs[-2:] if len(_segs) >= 2 else _segs
+    except Exception:
+        s["signal_segments"] = []
 
     return s

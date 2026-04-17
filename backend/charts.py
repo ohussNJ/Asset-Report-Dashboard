@@ -305,7 +305,7 @@ def make_obv_figure(ticker: str, df: pd.DataFrame, interval: str = "1d", n_bars:
             ax1.fill_between(dates, obv, obv_ma, where=obv < obv_ma,
                              color=C["bear_fg"], alpha=0.10)
         _legend(ax1, ncol=2)
-        # OBV divergence — min delta scaled to 1% of visible range
+        # OBV divergence: min delta scaled to 1% of visible range
         obv_range    = np.nanmax(obv) - np.nanmin(obv)
         obv_min_delta = max(obv_range * 0.01, 1.0)
         _draw_divergences(ax0, ax1, dates, close, obv,
@@ -375,7 +375,7 @@ def make_kc_cnv_figure(ticker: str, df: pd.DataFrame, interval: str = "1d", n_ba
                facecolor=CHART_BG, edgecolor=SPINE_COL, labelcolor=TEXT_COL,
                ncol=4, framealpha=0.9, handlelength=1.5)
 
-    # ── CNV_TB panel — histogram matching Pine Script style ────────────────────
+    # ── CNV_TB panel: histogram matching Pine Script style ─────────────────────
     # Pine: cnv_tb = cum(nv) - sma(cum(nv), 20)
     # Plotted as columns: blue >= 0, red < 0
     # Background zone: faint blue (bull state) / red (bear state)

@@ -74,8 +74,10 @@ def add_ema_sma(df: pd.DataFrame) -> pd.DataFrame:
     c = _c(df)
     df = df.copy()
     for p in MA_PERIODS:
-        df[f"EMA_{p}"] = ta.ema(c, length=p).values
-        df[f"SMA_{p}"] = ta.sma(c, length=p).values
+        ema = ta.ema(c, length=p)
+        sma = ta.sma(c, length=p)
+        df[f"EMA_{p}"] = ema.values if ema is not None else np.nan
+        df[f"SMA_{p}"] = sma.values if sma is not None else np.nan
     return df
 
 
@@ -113,7 +115,7 @@ def add_keltner(df: pd.DataFrame) -> pd.DataFrame:
     """
     Keltner Channel matching TradingView defaults:
       Basis = EMA(close, 20)
-      Band  = ATR(10)  [Wilder's RMA — same as ta.atr default]
+      Band  = ATR(10)
       Upper = Basis + 2 * ATR
       Lower = Basis - 2 * ATR
     pandas-ta's ta.kc() uses EMA(TR, length) for the band instead of ATR,
@@ -144,8 +146,8 @@ def add_nadaraya_watson(df: pd.DataFrame) -> pd.DataFrame:
     Nadaraya-Watson Envelope matching LuxAlgo Pine Script (repainting mode).
 
     For each of the last `size` bars, NW is a kernel regression whose center
-    shifts to that bar's position — not always anchored at bar 0.
-    SAE (band half-width) = simple unweighted average of all residuals × mult,
+    shifts to that bar's position (not always anchored at bar 0).
+    SAE (band half-width) = simple unweighted average of all residuals × mult
     which captures full historical volatility across the window.
 
     Pine Script reference:
@@ -172,7 +174,7 @@ def add_nadaraya_watson(df: pd.DataFrame) -> pd.DataFrame:
     # src[j] = close j bars ago from most recent (src[0]=latest, src[size]=oldest)
     src = close[n - lb : n][::-1].copy()
 
-    # Kernel matrix K[i,j] = gauss(i-j, h) — each row i is centered at bar i
+    # Kernel matrix K[i,j] = gauss(i-j, h): each row i centered at bar i
     idx = np.arange(lb, dtype=float)
     K   = np.exp(-((idx[:, None] - idx[None, :]) ** 2) / (2.0 * h * h))
 
@@ -224,7 +226,8 @@ def add_ichimoku(df: pd.DataFrame) -> pd.DataFrame:
 
 def add_volume(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
-    df["VOL_MA"] = ta.sma(_v(df), length=VOLUME_MA_PERIOD).values
+    vol_ma = ta.sma(_v(df), length=VOLUME_MA_PERIOD)
+    df["VOL_MA"] = vol_ma.values if vol_ma is not None else np.nan
     return df
 
 

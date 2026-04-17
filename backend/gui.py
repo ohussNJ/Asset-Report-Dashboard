@@ -237,7 +237,7 @@ def _attach_crosshair(canvas):
 # ── Sparkline widget ─────────────────────────────────────────────────────────
 
 class _ScoreSparkline(QWidget):
-    """Score history sparkline with ±20 neutral-zone lines — mirrors Pine's scoreSmooth plot."""
+    """Score history sparkline with ±20 neutral-zone lines to mirror Pine's scoreSmooth plot."""
     def __init__(self, values, parent=None):
         super().__init__(parent)
         self._vals = list(values)
@@ -273,7 +273,7 @@ class _ScoreSparkline(QWidget):
         y0 = _y(0)
         p.drawLine(int(pad_x), int(y0), int(pad_x + w), int(y0))
 
-        # Score line — color by current value
+        # Score line colored by current value
         last = self._vals[-1]
         line_color = BULL_FG if last > 20 else BEAR_FG if last < -20 else NEUT_FG
         path = QPainterPath()
@@ -294,7 +294,7 @@ class _ScrollBanner(QWidget):
     """Horizontally scrolling marquee showing bullish tickers and their scores."""
     def __init__(self, items: list[tuple[str, str]], parent=None):
         super().__init__(parent)
-        # items: [(name, score_str), ...]  — already filtered to bullish
+        # items: [(name, score_str), ...]  filtered to bullish only
         self._font  = QFont("Consolas", 9, QFont.Weight.Bold)
         self._sep   = "   ·   "
         self._text  = self._sep.join(f"{n}  {s}" for n, s in items)
@@ -655,7 +655,7 @@ class AssetReportApp(QMainWindow):
         self._compute_watchlist()
 
     def _render_interval_switch(self):
-        """Done callback for interval switches — mirrors _render_all's blockSignals
+        """Done callback for interval switches, mirrors _render_all's blockSignals
         pattern so _swap_tab's removeTab/insertTab don't cascade into _on_tab_changed
         and schedule stale-index QTimer.singleShot calls that navigate away from
         the current ticker."""
@@ -715,7 +715,7 @@ class AssetReportApp(QMainWindow):
         saved = self._tabs.currentIndex()
         # Keep signals blocked for the entire render pass (Summary, Watchlist,
         # and the current ticker).  Each _swap_tab is an in-place remove+insert
-        # so net index shift is zero — saved stays valid throughout.
+        # so net index shift is zero; saved stays valid throughout.
         # After unblocking, one explicit setCurrentIndex replaces all the
         # competing QTimer.singleShot calls that previously raced each other.
         self._tabs.blockSignals(True)
@@ -810,7 +810,7 @@ class AssetReportApp(QMainWindow):
         dd = Data.fetch_symbol(sym, "1d")
         dw = Data.fetch_symbol(sym, "1wk")
         if dd.empty:
-            self._worker.status.emit(f"No data for '{sym}' — check the symbol")
+            self._worker.status.emit(f"No data for '{sym}', check the symbol")
             return
         base = dd if self._interval == "1d" else (dw if not dw.empty else dd)
         comp = indicators.compute_all(base, dw if not dw.empty else dd)
@@ -821,7 +821,7 @@ class AssetReportApp(QMainWindow):
 
     def _open_custom_tab(self, sym: str, switch_tab: bool = True):
         if sym not in self._sig:
-            self._set_status(f"'{sym}' not found — check the symbol")
+            self._set_status(f"'{sym}' not found, check the symbol")
             return
 
         # Save current tab so _swap_tab calls don't leave us on the wrong tab
@@ -865,7 +865,7 @@ class AssetReportApp(QMainWindow):
             if s:
                 flow.add_card(self._make_card(name, s, self._computed.get(name)))
 
-        # Bullish banner items — main tickers + watchlist, sorted by score desc
+        # Bullish banner items: main tickers + watchlist sorted by score desc
         all_sigs = {**self._watchlist_sig, **self._sig}  # sig wins on overlap
         bull_items = sorted(
             [
@@ -1098,7 +1098,7 @@ class AssetReportApp(QMainWindow):
                 rl.addWidget(name_lbl)
                 rl.addStretch()
 
-                # Current / previous signal state — centered
+                # Current / previous signal state (centered)
                 row_sig_w = _build_signal_history_widget(self._watchlist_df.get(symbol), inline=True)
                 if row_sig_w is not None:
                     rl.addWidget(row_sig_w)
@@ -1580,7 +1580,7 @@ class AssetReportApp(QMainWindow):
 
         n_bars = LOOKBACK_OPTIONS[self._lookback][self._interval]
 
-        # Nested tab widget — one sub-tab per indicator
+        # Nested tab widget: one sub-tab per indicator
         inner = QTabWidget()
         inner.setStyleSheet(f"""
             QTabWidget::pane  {{ background:#1e1e1e; border:none; }}
