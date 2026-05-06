@@ -18,6 +18,7 @@ WATCHLIST = {
         "GOOGL": "Alphabet",
         "META":  "Meta",
         "TSLA":  "Tesla",
+        "AMD":   "AMD",
         "COIN":  "Coinbase",
         "MSTR":  "MicroStrategy",
         "CRCL":  "Circle",
@@ -26,7 +27,9 @@ WATCHLIST = {
     "ETFs": {
         "QQQ":  "Nasdaq 100",
         "IWM":  "Russell 2000",
-        "SOXX": "Semiconductors",
+        "XSD":  "Semiconductors (S&P)",
+        "WGMI": "Crypto Miners",
+        "DBB":  "Base Metals",
         "XBI":  "Biotech",
         "XHB":  "Homebuilders",
         "XLB":  "Materials",
@@ -104,6 +107,14 @@ NW_LOOKBACK    = 500
 SIGNAL_ENTRY      = 30
 SIGNAL_EXIT       = 10
 SIGNAL_SLOPE_BARS = 5
+
+# Divergence detection – per-timeframe pivot params and recency window
+DIVERGENCE_PARAMS = {
+    "3h":  {"left": 10, "right": 10, "match_window": 15, "recency_days":  7},
+    "1d":  {"left":  5, "right":  5, "match_window":  8, "recency_days": 30},
+    "3d":  {"left":  4, "right":  4, "match_window":  6, "recency_days": 60},
+    "1wk": {"left":  3, "right":  3, "match_window":  5, "recency_days": 120},
+}
 
 # Color palette (Catppuccin Mocha-inspired)
 C = {

@@ -133,6 +133,11 @@ def _score_series(df: pd.DataFrame) -> pd.Series:
     return buy - sell
 
 
+def score_series_full(df: pd.DataFrame) -> pd.Series:
+    """SMA(5)-smoothed score for every bar; NaN for the first 4 bars. Same length as df."""
+    return _score_series(df).rolling(5).mean()
+
+
 def score_history(df: pd.DataFrame, n: int = 60) -> pd.Series:
     """Return the last n bars of SMA(5)-smoothed net score - mirrors Pine's scoreSmooth."""
     raw = _score_series(df)

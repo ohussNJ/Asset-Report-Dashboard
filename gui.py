@@ -21,6 +21,7 @@ import signals as Sig
 import charts as Charts
 import chart_html as ChartHTML
 import backtest as BT
+import report as Report
 from config import TICKERS, WATCHLIST, STOCHRSI_CONFIGS, MA_PERIODS
 
 _IV_LABEL = {"3h": "3H", "1d": "1D", "3d": "3D", "1wk": "1W"}
@@ -407,6 +408,7 @@ class AssetReportApp(QMainWindow):
         self._watchlist_sig: dict = {}
         self._watchlist_df:  dict = {}
         self._worker:        _Worker | None = None
+        self._report_worker: _Worker | None = None
         self._vix:           float | None = None
         self._move:          float | None = None
         self._move_slope:    float | None = None
@@ -469,10 +471,11 @@ class AssetReportApp(QMainWindow):
             QTabBar::tab:hover    {{ background:#2e2e2e; color:#ccc; }}
         """)
 
-        for label in ["Summary", "Watchlist", "Backtest", "Info"] + list(TICKERS):
+        for label in ["Summary", "Watchlist", "Backtest", "Report", "Info"] + list(TICKERS):
             self._tabs.addTab(QWidget(), label)
 
         self._build_info_tab()
+        self._build_report_tab()
         self._tabs.setCurrentIndex(self._tab_index("Summary"))
 
         mkt_card = QFrame()
@@ -873,6 +876,80 @@ class AssetReportApp(QMainWindow):
         vl.addWidget(sa)
 
         self._swap_tab(idx, container, "Summary")
+
+    # Report tab
+    def _run_report_worker(self, fn, on_done, on_status):
+        if self._report_worker and self._report_worker.isRunning():
+            return
+        self._report_worker = _Worker(fn)
+        self._report_worker.status.connect(on_status)
+        self._report_worker.errored.connect(lambda e: on_status(f"Error: {e}"))
+        self._report_worker.done.connect(on_done)
+        self._report_worker.start()
+
+    def _build_report_tab(self):
+        idx = self._tab_index("Report")
+
+        content = QWidget()
+        content.setStyleSheet(f"background:{BG};")
+        vbox = QVBoxLayout(content)
+        vbox.setContentsMargins(0, 0, 0, 0)
+        vbox.setSpacing(0)
+
+        # Top bar
+        bar = QFrame()
+        bar.setFixedHeight(40)
+        bar.setStyleSheet(f"background:{BG_CARD};border-bottom:1px solid #333;")
+        bl = QHBoxLayout(bar)
+        bl.setContentsMargins(12, 0, 12, 0)
+        bl.setSpacing(10)
+
+        gen_btn    = _btn("Generate Report", w=130)
+        status_lbl = _lbl("Click to scan all tickers across all timeframes.", color=FG_SUB)
+
+        bl.addWidget(gen_btn)
+        bl.addWidget(status_lbl)
+        bl.addStretch()
+        vbox.addWidget(bar)
+
+        # Web view
+        view = QWebEngineView()
+        view.setHtml(f'<html><body style="background:{BG};margin:0;"></body></html>')
+        vbox.addWidget(view)
+
+        def _generate():
+            if self._report_worker and self._report_worker.isRunning():
+                return
+            gen_btn.setEnabled(False)
+            rows_holder = []
+
+            def _work():
+                def _prog(done, total, msg):
+                    self._report_worker.status.emit(f"{msg}  ({done}/{total})")
+                rows_holder.extend(Report.generate_report(progress_cb=_prog))
+
+            def _done():
+                gen_btn.setEnabled(True)
+                if not rows_holder:
+                    status_lbl.setText("No data returned.")
+                    return
+                html = Report.build_report_html(rows_holder)
+                with tempfile.NamedTemporaryFile(
+                    mode="w", suffix=".html", delete=False, encoding="utf-8"
+                ) as tmp:
+                    tmp.write(html)
+                    tmp_path = tmp.name
+                view.load(QUrl.fromLocalFile(tmp_path))
+                view.loadFinished.connect(lambda _ok, p=tmp_path: os.unlink(p))
+                status_lbl.setText(
+                    f"Report generated — {len(rows_holder)} tickers · 4 timeframes"
+                )
+
+            self._run_report_worker(_work, on_done=_done,
+                                    on_status=lambda msg: status_lbl.setText(msg))
+
+        gen_btn.clicked.connect(_generate)
+        self._swap_tab(idx, content, "Report")
 
     # Info tab
     def _build_info_tab(self):
